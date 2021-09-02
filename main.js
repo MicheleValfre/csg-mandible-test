@@ -114,7 +114,7 @@ function init(){
 
         //Loading mesh
         const loader = new STLLoader();
-        loader.load('./stl/Bone_A.stl', geometry => {
+        loader.load('/csg-mandible-test/Bone_A.stl', geometry => {
             boneAGeometry = geometry;
             boneAMaterial = new THREE.MeshPhongMaterial({
                 color: 0xcdcfc9,
@@ -214,7 +214,7 @@ function init(){
 
                         cutPerformed = true;
                         
-                        loader.load('./stl/Bone_C.stl', geometry => {
+                        loader.load('/csg-mandible-test/Bone_C.stl', geometry => {
                             boneCGeometry = geometry;
                             boneCMaterial = new THREE.MeshPhongMaterial({
                                 color: 0xcdcfc9,
