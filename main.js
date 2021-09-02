@@ -6,10 +6,8 @@ import { ConvexGeometry } from "https://threejs.org/examples/jsm/geometries/Conv
 
 
 import CSG from "https://manthrax.github.io/THREE-CSGMesh/three-csg.js";
-import BoneSlicer from "./BoneSlicer.js";
 
 import { STLLoader } from "https://threejs.org/examples/jsm/loaders/STLLoader.js";
-import { GUI } from "./dat.gui.module.js";
 
 let camera;
 let renderer;
