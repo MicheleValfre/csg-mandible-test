@@ -26,11 +26,17 @@ let lines;
 let planesVertices;
 let planesGrps
 let grpToPlace;
+let pointMeshes;
+let planeMeshes;
+let planePairs;
 
 const planeSide = 22;
 
 function init(){
         //Initializing global variables
+        planePairs = [];
+        planeMeshes = [];
+        pointMeshes = [];
         grpToPlace = 0;
         planesGrps = [];
         sliceBoxesC = [];
@@ -46,15 +52,19 @@ function init(){
         cutPerformed = false;
 
         //Setting up scene
-        camera = new THREE.PerspectiveCamera(
-          60,
-          window.innerWidth / window.innerHeight,
-          0.1,
-          1000
+        camera = new THREE.OrthographicCamera(
+            window.innerWidth / - 2,
+            window.innerWidth / 2,
+            window.innerHeight / 2,
+            window.innerHeight / - 2,
+            10,
+            1000
         );
         camera.position.set(1, 1, 1).multiplyScalar(80);
+        camera.zoom = 10;
 
         scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
 
         renderer = new THREE.WebGLRenderer({
             antialias: true
@@ -114,10 +124,10 @@ function init(){
 
         //Loading mesh
         const loader = new STLLoader();
-        loader.load('Bone_A.stl', geometry => {
+        loader.load('./stl/Bone_A.stl', geometry => {
             boneAGeometry = geometry;
             boneAMaterial = new THREE.MeshPhongMaterial({
-                color: 0xcdcfc9,
+                color: 0xbababa,
                 shading: THREE.SmoothShading
             });
             boneAMesh = new THREE.Mesh(boneAGeometry, boneAMaterial);
@@ -154,7 +164,7 @@ function init(){
         document.addEventListener("keydown", e => {
             //Perform cut once the planes are placed
             if(e.code == "KeyC"){
-                if(planes ==3){
+                if(planes == 4){
                     window.info.innerText = 'Performing cut, please, wait...';
                     setTimeout(() => {
                         let tstart = performance.now();
@@ -214,10 +224,10 @@ function init(){
 
                         cutPerformed = true;
                         
-                        loader.load('Bone_C.stl', geometry => {
+                        loader.load('./stl/Bone_C.stl', geometry => {
                             boneCGeometry = geometry;
                             boneCMaterial = new THREE.MeshPhongMaterial({
-                                color: 0xcdcfc9,
+                                color: 0x7a7a7a,
                                 shading: THREE.SmoothShading
                             });
                             boneCMesh= new THREE.Mesh(boneCGeometry, boneCMaterial);
@@ -232,7 +242,7 @@ function init(){
                             boneCMesh.renderOrder = 0;
                             boneCMesh.geometry.center();
                             boneCMesh.position.set(0,-50,0);
-                            boneCMesh.rotation.y = (1.570796);
+                            boneCMesh.rotation.y = Math.PI / 2;
                             boneCPlaced = true;
                         });
                         window.info.innerText += "\n[T]: toggle cut part";
@@ -256,50 +266,63 @@ function init(){
             }
             if(e.code == "KeyS"){
                 //Operate cut/substitution of bone C parts
-                if(boneCPlaced && pointsC.length == 3){
-                        transformControls.detach();
-                        for(var i = 0; i < planesGrps.length; i++){
-                            let vecsA = [];
-                            const vecsB = [];
-                            const planeA = planesGrps[i].children[0];
-                            const planeB = planesGrps[i].children[1];
-                            planeA.updateMatrixWorld();
-                            planeB.updateMatrixWorld();
+                if(boneCPlaced && planePairs.length == 3){
+                    transformControls.detach();
+                    var positions = [];
+                    var vectors = [];
+                    for(var i in planePairs){
+                        planePairs[i].children[0].updateMatrixWorld();
+                        planePairs[i].children[1].updateMatrixWorld();
 
-                            const tmpArrA = new Float32Array(planeA.geometry.attributes.position.array);
-                            const tmpArrB = new Float32Array(planeB.geometry.attributes.position.array);
-                            for(var j = 0; j < tmpArrA.length; j += 3){
-                                const tmpVec = new THREE.Vector3(tmpArrA[j],tmpArrA[j+1],tmpArrA[j+2]);
-                                tmpVec.applyMatrix4(planeA.matrixWorld);
-                                vecsA.push(tmpVec);
-                            }
-                            for(var j = 0; j < tmpArrB.length; j += 3){
-                                const tmpVec = new THREE.Vector3(tmpArrB[j],tmpArrB[j+1],tmpArrB[j+2]);
-                                tmpVec.applyMatrix4(planeB.matrixWorld);
-                                vecsB.push(tmpVec);
-                            }
+                        positions[i] = [];
+                        positions[i][0] = new Float32Array(planePairs[i].children[0].geometry.attributes.position.array);
+                        positions[i][1] = new Float32Array(planePairs[i].children[1].geometry.attributes.position.array);
 
-                            const sliceGeo = new ConvexGeometry(vecsA.concat(vecsB));
-                            const sliceMesh = new THREE.Mesh(sliceGeo,new THREE.MeshBasicMaterial({color:pointsCColours[0]}));
-                            scene.add(sliceMesh);
-
-                            scene.updateMatrixWorld(true);
-                            let bspA_C, bspB_C, bspC_C;
-                            bspA_C = CSG.fromMesh(boneCMesh);
-                            bspB_C = CSG.fromMesh(sliceMesh);
-                            bspC_C = bspA_C.intersect(bspB_C);
-                            const piece = CSG.toMesh(bspC_C,boneCMesh.matrix);
-                            piece.material = new THREE.MeshPhongMaterial({color:pointsCColours[i]});
-                            scene.add(piece);
-                            piece.geometry.computeBoundingBox();
-                            piece.geometry.center();
-                            const mid = calculateMidPoint(points[i],points[i+1]);
-                            piece.position.copy(mid);
-                            scene.remove(sliceMesh);
-                            piece.lookAt(points[i+1]);
-                            window.info.innerText = "Substitution performed";
+                        vectors[i] = [];
+                        vectors[i][0] = [];
+                        vectors[i][1] = [];
+                        
+                        //Note: positions[i][0].length == positions[i][1].length
+                        for(var j = 0; j < positions[i][0].length; j+= 3){
+                            //0
+                            const tmpVec = new THREE.Vector3(positions[i][0][j], positions[i][0][j+1], positions[i][0][j+2]);
+                            tmpVec.applyMatrix4(planePairs[i].children[0].matrixWorld);
+                            vectors[i][0].push(tmpVec);
+                            //1
+                            const tmpVec2 = new THREE.Vector3(positions[i][1][j], positions[i][1][j+1], positions[i][1][j+2]);
+                            tmpVec2.applyMatrix4(planePairs[i].children[1].matrixWorld);
+                            vectors[i][1].push(tmpVec2);
                         }
                     }
+                    //Creating slicer
+                    var slicerList = [];
+                    for(var i = 0; i < planePairs.length; i++){
+                        console.log(i);
+                        console.log(vectors[i][0].length);
+                        console.log(vectors[i][1].length);
+                        const sliceGeo = new ConvexGeometry(vectors[i][0].concat(vectors[i][1]));
+                        const sliceMesh = new THREE.Mesh(sliceGeo,new THREE.MeshBasicMaterial({color:pointsCColours[0]}));
+                        scene.add(sliceMesh);
+                        slicerList.push(sliceMesh);
+                    }
+
+                    //Slicing
+                    for(var i = 0; i < slicerList.length; i++){
+                        scene.updateMatrixWorld(true);
+                        var bspA_C = CSG.fromMesh(boneCMesh);
+                        var bspB_C = CSG.fromMesh(slicerList[i]);
+                        var bspC_C = bspA_C.intersect(bspB_C);
+                        var piece = CSG.toMesh(bspC_C,boneCMesh.matrix);
+                        piece.material = new THREE.MeshPhongMaterial({color: pointsCColours[i]}); 
+                        piece.geometry.computeBoundingBox();
+                        piece.geometry.center();
+                        scene.add(piece);
+                        scene.remove(slicerList[i]);
+                        const mid = calculateMidPoint(points[i],points[i+1]);
+                        piece.position.copy(mid);
+                        piece.lookAt(points[i+1]);
+                    }
+                }
             }
             if(e.code == "KeyM"){
                 transformControls.setMode('translate');
@@ -323,6 +346,7 @@ function init(){
                     sphere.position.copy(intersects[0].point);
                     scene.add(sphere);
                     points.push(intersects[0].point);
+                    pointMeshes.push(sphere);
                     if(points.length >= 2){
                         lineSizes.push(distanceVector(points[points.length-1],points[points.length-2]));
                         linesNormalized.push(lineToNormalizedVector(points[points.length-1],points[points.length-2])); 
@@ -334,54 +358,64 @@ function init(){
                     lines.push(line);
                     if(points.length == 4 && !boneCPlaced && planes < 4){
                         window.info.innerText = "Press [C] when you're ready to perform the cut"
-                        for(planes = 0; planes < 3; planes++){
+                        for(planes = 0; planes < 4; planes++){
                             sliceBoxes[planes] = new THREE.Mesh(new THREE.PlaneGeometry(planeSide,planeSide),new THREE.MeshBasicMaterial( {color: 0xabfea5, side: THREE.DoubleSide} ));
                             sliceBoxes[planes].geometry.center();
                             sliceBoxes[planes].position.copy(points[planes]);
-                            sliceBoxes[planes].lookAt(points[planes+1]);
-                            if(planes >= 1){
-                                const grp = new THREE.Group();
-                                grp.add(sliceBoxes[planes-1].clone());
-                                grp.add(sliceBoxes[planes].clone());
-                                planesGrps.push(grp);
-                                scene.add(grp);
-                            }
+                            if(planes < 3)
+                                sliceBoxes[planes].lookAt(points[planes+1]);
+                            else//Last plane can't look at next point(obviously)
+                                sliceBoxes[planes].rotation.y += Math.PI / 2;
+                            scene.add(sliceBoxes[planes]);
                         }
-                        sliceBoxes[3] = new THREE.Mesh(new THREE.PlaneGeometry(planeSide,planeSide),new THREE.MeshBasicMaterial( {color: 0xabfea5, side: THREE.DoubleSide} ));
-                        sliceBoxes[3].geometry.center();
-                        sliceBoxes[3].position.copy(points[3]);
-                        sliceBoxes[3].rotation.y += Math.PI / 2;
-                        const grp = new THREE.Group();
-                        grp.add(sliceBoxes[2]);
-                        grp.add(sliceBoxes[3].clone());
-                        planesGrps.push(grp);
-                        const ah = new THREE.AxesHelper(10);
-                        grp.add(ah);
-                        scene.add(grp);
                     }
                 }
             }
             else{
+                if(planePairs.length < 3){
+                    const mouse = new THREE.Vector2();
+                    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+	                mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+                    const raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(mouse,camera);
+                    const intersects = raycaster.intersectObjects( scene.children );
+                    if(intersects.length > 0){
+                        const pt = intersects[0].point;
+                        const index = planePairs.length;
+                        console.log(index);
+                        const p1 = sliceBoxes[index].clone();
+                        const p2 = sliceBoxes[index+1].clone();
+
+                        const grp = new THREE.Group();
+                        grp.add(p1);
+                        grp.add(p2);
+                        scene.add(grp);
+                        grp.position.copy(pt);
+                        planePairs.push(grp);
+                        transformControls.attach(grp);
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('click',function(){
+            if(sliceBoxes.length == 4 && !boneCPlaced){
+                transformControls.detach();
                 const mouse = new THREE.Vector2();
                 mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
 	            mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
                 const raycaster = new THREE.Raycaster();
                 raycaster.setFromCamera(mouse,camera);
                 const intersects = raycaster.intersectObjects( scene.children );
-                if(intersects.length > 0 && pointsC.length < 3){
-                    const pt = intersects[0].point;
-                    const grpC = planesGrps[grpToPlace];
-                    scene.add(grpC);
-                    grpC.position.copy(pt);
-                    pointsC.push(grpC);
-                    grpToPlace++;
-                    transformControls.attach(grpC);
-                    var msg = "Transpose the planes using the available controls:\n[M]: switch to move mode\n[R]: switch to rotate mode\nWhen you're ready to add the next planes: double click on the bone";
- 
-                    if(pointsC.length == 3){
-                        msg += "\nWhen you are ready to perform the substitution, press [S]";
+                if(intersects.length > 0){
+                    const plane = intersects[0].object;
+                    for(var i = 0; i < sliceBoxes.length; i++){
+                        if(sliceBoxes[i] == plane){
+                            transformControls.attach(plane);
+                            break;
+                        }
                     }
-                    window.info.innerText = msg;
                 }
             }
         });
@@ -483,3 +517,4 @@ function float32Concat(first, second)
 
 init();
 animate();
+
