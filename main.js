@@ -357,7 +357,7 @@ function init(){
                     scene.add(line);
                     lines.push(line);
                     if(points.length == 4 && !boneCPlaced && planes < 4){
-                        window.info.innerText = "Press [C] when you're ready to perform the cut"
+                        window.info.innerText = "Press [C] when you're ready to perform the cut.\nOr select a plane in order to edit its position"
                         for(planes = 0; planes < 4; planes++){
                             sliceBoxes[planes] = new THREE.Mesh(new THREE.PlaneGeometry(planeSide,planeSide),new THREE.MeshBasicMaterial( {color: 0xabfea5, side: THREE.DoubleSide} ));
                             sliceBoxes[planes].geometry.center();
