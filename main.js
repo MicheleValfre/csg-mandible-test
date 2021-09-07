@@ -124,7 +124,7 @@ function init(){
 
         //Loading mesh
         const loader = new STLLoader();
-        loader.load('./stl/Bone_A.stl', geometry => {
+        loader.load('Bone_A.stl', geometry => {
             boneAGeometry = geometry;
             boneAMaterial = new THREE.MeshPhongMaterial({
                 color: 0xbababa,
@@ -224,7 +224,7 @@ function init(){
 
                         cutPerformed = true;
                         
-                        loader.load('./stl/Bone_C.stl', geometry => {
+                        loader.load('Bone_C.stl', geometry => {
                             boneCGeometry = geometry;
                             boneCMaterial = new THREE.MeshPhongMaterial({
                                 color: 0x7a7a7a,
